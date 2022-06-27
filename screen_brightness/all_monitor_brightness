@@ -1,0 +1,23 @@
+#!/bin/bash
+##########
+# Desc:     This script is used to increase and lower the brightness of all currently
+#           connectede monitors
+# Usage:    all_monitor_brightness $1
+#               $1:     '+' or '-' to increase or decrease brightness
+# Author:   Silas Waxter
+# Date:     07/22/22
+##########
+#####
+# parse xrandr data for names all connected outputs
+#####
+display_names=$(xrandr | grep " connected" | awk '{print $1}')
+
+screen_brightness_scripts_dir="/etc/system_config_files_linux/screen_brightness"
+
+#####
+# change brightnesses of all outputs
+#####
+for display in ${display_names}; do
+    # use hardcoded value bc xbindkeysrc caller of script cannot find this abs dir.
+    ${screen_brightness_scripts_dir}/monitor_brightness "${display}" "${1}"
+done

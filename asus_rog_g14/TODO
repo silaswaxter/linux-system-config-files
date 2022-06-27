@@ -1,0 +1,8 @@
+1. graphics drivers.
+    - asusctl muxless switch does not work for this laptop;  get prime working
+    - ensure prime-run ___ works;
+    - ensure default driver is vga;
+    - get displayport (dGPU only) working
+2. keybindings
+    - get mic mute button mapped
+

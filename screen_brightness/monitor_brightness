@@ -1,0 +1,104 @@
+#!/bin/bash
+##########
+# Desc:     This script is used to increase and lower the brightness of a display 
+#           (in software) by a set ammount.  Uses xrandr to do so.
+# Usage:    monitor_brightness $1 $2
+#               $1:     name of xrandr output to change brightness of
+#               $2:     '+' or '-' to increase or decrease brightness
+# Author:   Modified by Silas Waxter.  See https://askubuntu.com/a/1150409
+# Date:     07/19/22
+##########
+step=10          # Step Up/Down brightnes by: 5 = ".05", 10 = ".10", etc.
+
+display_name="${1}"
+current_brightness=""
+update_current_brightness () {
+    current_brightness=$(xrandr --verbose --current         | \
+                            grep ^"${display_name}" -A5     | \
+                            tail -n1                        | \
+                            sed -n 's/.*Brightness: //p')
+}
+update_current_brightness     
+
+#####
+# calculate new brightness
+#####
+new_brightness=""
+
+left=${current_brightness%%"."*}        # Extract left of decimal point
+right=${current_brightness#*"."}        # Extract right of decimal point
+
+math_brightness="0"
+[[ "$left" != 0 && "$step" -lt 10 ]] && step=10     # > 1.0, only .1 works
+[[ "$left" != 0 ]] && math_brightness="$left"00          # 1.0 becomes "100"
+[[ "${#right}" -eq 1 ]] && right="$right"0          # 0.5 becomes "50"
+math_brightness=$(( math_brightness + right ))
+
+[[ "$2" == "Up" || "$2" == "+" ]] && math_brightness=$(( math_brightness + step ))
+[[ "$2" == "Down" || "$2" == "-" ]] && math_brightness=$(( math_brightness - step ))
+[[ "${math_brightness:0:1}" == "-" ]] && math_brightness=0    # Negative not allowed
+[[ "$math_brightness" -gt 999  ]] && math_brightness=999      # Can't go over 9.99
+
+if [[ "${#math_brightness}" -eq 3 ]] ; then
+    math_brightness="$math_brightness"000         # Pad with lots of zeros
+    new_brightness="${math_brightness:0:1}.${math_brightness:1:2}"
+else
+    math_brightness="$math_brightness"000         # Pad with lots of zeros
+    new_brightness=".${math_brightness:0:2}"
+fi
+
+#####
+# set new brightness
+#####
+xrandr --output "$1" --brightness "${new_brightness}"
+
+#####
+# notify user current brightness
+#####
+# get brightness from xrandr and tell user what it is now
+update_current_brightness
+
+# Desc: Move the decimal point one place to the right and drop everything from the
+#       decimal point to the right.  Also, remove padded Zeros.
+# Ex:   convert 0.70 to 7
+#       convert 1.2 to 12
+format_current_brightness_to_special_int () {
+    #
+    current_brightness="$(echo "${current_brightness}"              | \
+                            sed 's/\([0-9]\)\.\([0-9]\).*/\1\2/g'   | \
+                            sed 's/0\([0-9]\)/\1/g')"
+}
+format_current_brightness_to_special_int
+
+# Desc: map current brightness range 0-20 to 0-100
+map_current_brightness_range () {
+    current_brightness="$(expr 5 \* ${current_brightness})"
+}
+map_current_brightness_range
+
+notify_id_to_replace_filename="/var/tmp/prev_brightness_notify_id_${display_name}"
+# Desc: get the notify id to replace (so that when script called faster than timeout, new
+# notifys replace old).
+notify_id_to_replace=""
+get_notify_id_to_replace () {
+    # filter out any non-numbers from result
+    notify_id_to_replace=$(cat "${notify_id_to_replace_filename}" | \
+                            sed 's/[^0-9]*//g' )
+}
+get_notify_id_to_replace
+
+# if there is no notify_id_to_replace, omit the replace flag
+if [[ -n "${notify_id_to_replace}" ]]; then
+    notify_id=$(notify-send -h int:value:${current_brightness} \
+                    --print-id --replace-id=${notify_id_to_replace} \
+                    --expire-time 8000 \
+                    "${1} [${current_brightness}%]")
+else
+    notify_id=$(notify-send -h int:value:${current_brightness} \
+                    --print-id \
+                    --expire-time 8000 \
+                    "${1} [${current_brightness}%]")
+fi
+
+# update the notrification_id_to_replace
+echo "${notify_id}" > "${notify_id_to_replace_filename}"

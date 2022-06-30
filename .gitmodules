@@ -1,0 +1,3 @@
+[submodule "session_locker/slock_fork"]
+	path = session_locker/slock_fork
+	url = https://codeberg.org/jos/slock
